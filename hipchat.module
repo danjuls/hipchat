@@ -1,0 +1,180 @@
+<?php
+
+/*
+ * @file
+ * Menu hooks and other functions for hipchat module
+ */
+
+
+/*
+ * Implementation of hook_menu().
+ */
+
+function hipchat_menu() {
+  $items = array();
+
+  $items['admin/config/services/hipchat'] = array(
+    'title' => 'Hipchat',
+    'description' => 'Configure Hipchat settings & objects',
+    'page callback' => 'drupal_get_form',
+    'type' => MENU_NORMAL_ITEM,
+    'page arguments' => array('hipchat_admin_settings'),
+    'access arguments' => array('administer hipchat'),
+    'file' => 'hipchat.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * @file Hook implementations for HipChat so we can respond to various system events.
+ */
+
+// TODO For now we'll hard code our event handling. Eventually we could make things more configurable
+// for site builders perhaps by integrating w/ core's action framework and Rules.
+
+function hipchat_send($message, $room = NULL) {
+  
+  require 'hipchat-php/HipChat.php';
+  
+  $room = variable_get('hipchat_default_room', 'Development');
+  $site_name = variable_get('site_name', 'Drupal site');
+  $color = variable_get('hipchat_message_color');
+  // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
+  $site_name = substr($site_name, 0, 15);
+  $token = variable_get('hipchat_token');
+
+  $hc = new Hipchat\Hipchat($token);
+
+  $hc->message_room($room, $site_name, $message, 'false', $color, 'html');
+}
+
+/**
+ * Implementation of hook_node_insert()
+ */
+function hipchat_node_insert($node) {
+  
+  $is_active = variable_get('hipchat_' . $node->type . '_insert');
+  
+  if (isset($is_active) && $is_active == 1) {
+    global $user;
+
+    $message = t('@user_name created a new <em>@node_type</em> "@node_title":<br /> !teaser !link.', array(
+      '@user_name' => $user->name,
+      '@node_type' => $node->type,
+      '@node_title' => $node->title,
+      '!teaser' => text_summary($node->body[LANGUAGE_NONE][0]['value'], NULL, 250) . "&#8230;",
+      '!link' => l(t('Link'), 'node/' . $node->nid, array('absolute' => TRUE)),
+    ));
+
+    hipchat_send($message); 
+  }
+}
+
+/**
+ * Implementation of hook_node_update()
+ */
+function hipchat_node_update($node) {
+  
+  $is_active = variable_get('hipchat_' . $node->type . '_update');
+  
+  if (isset($is_active) && $is_active == 1) {
+    global $user;
+
+    $message = t('@user_name edited "@node_title" of type <em>@node_type</em>. !link', array(
+      '@user_name' => $user->name,
+      '@node_type' => $node->type,
+      '@node_title' => $node->title,
+      '!link' => l(t('Link'), 'node/' . $node->nid, array('absolute' => TRUE)),
+    ));
+    
+    hipchat_send($message);
+  }
+}
+
+/**
+ * Implementation of hook_node_delete()
+ */
+function hipchat_node_delete($node) {
+  
+  $is_active = variable_get('hipchat_' . $node->type . '_delete');
+  
+  if (isset($is_active) && $is_active == 1) {
+    global $user;
+
+    $message = t('@user_name deleted "@node_title" of type <em>@node_type</em>.', array(
+      '@user_name' => $user->name,
+      '@node_type' => $node->type,
+      '@node_title' => $node->title,
+    ));
+
+    hipchat_send($message);
+  }
+}
+
+/**
+ * Implementation of hook_comment_insert()
+ */
+function hipchat_comment_insert($comment) {
+ 
+  $node = node_load($comment->nid);
+  $is_active = variable_get('hipchat_' . $node->type . '_insert');
+  $do_insert = variable_get('hipchat_' . $node->type . '_comment_insert');
+  
+  if (isset($is_active) && $is_active == 1 && isset($do_insert) && $do_insert == 1) {
+    global $user;
+    
+    $message = t('@user_name added a new comment to "@node_title":<br /> !teaser !link', array(
+      '@user_name' => $user->name,
+      '@node_title' => $node->title,
+      '!teaser' => text_summary($comment->comment_body[LANGUAGE_NONE][0]['value'], NULL, 250) . "&#8230;",
+      '!link' => l(t('Link'), 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $comment->cid)),
+    ));
+    
+    hipchat_send($message);
+  }
+}
+
+/**
+ * Implementation of hook_comment_update()
+ */
+function hipchat_comment_update($comment) {
+  
+  $node = node_load($comment->nid);
+  $is_active = variable_get('hipchat_' . $node->type . '_update');
+  $do_update = variable_get('hipchat_' . $node->type . '_comment_update');
+  
+  if (isset($is_active) && $is_active == 1 && isset($do_update) && $do_update == 1) {
+    global $user;
+
+    $message = t('@user_name edited their comment to "@node_title". !link', array(
+      '@user_name' => $user->name,
+      '@node_title' => $node->title,
+      '!link' => l(t('Link'), 'node/' . $node->nid, array('absolute' => TRUE, 'fragment' => 'comment-' . $comment->cid)),
+    ));
+
+    hipchat_send($message);
+  }
+}
+
+/**
+ * Implementation of hook_comment_delete()
+ */
+function hipchat_comment_delete($comment) {
+  
+  $node = node_load($comment->nid);
+  $is_active = variable_get('hipchat_' . $node->type . '_delete');
+  $do_delete = variable_get('hipchat_' . $node->type . '_comment_delete');
+  
+  if (isset($is_active) && $is_active == 1 && isset($do_delete) && $do_delete == 1) {
+    global $user;
+
+    $message = t('@user_name deleted a comment on "@node_title". !link', array(
+      '@user_name' => $user->name,
+      '@node_title' => $node->title,
+      '!link' => l(t('Link'), 'node/' . $node->nid, array('absolute' => TRUE)),
+    ));
+
+    hipchat_send($message);
+  }
+}
