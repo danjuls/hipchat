@@ -29,10 +29,6 @@ function hipchat_menu() {
 /**
  * @file Hook implementations for HipChat so we can respond to various system events.
  */
-
-// TODO For now we'll hard code our event handling. Eventually we could make things more configurable
-// for site builders perhaps by integrating w/ core's action framework and Rules.
-
 function hipchat_send($message, $room = NULL) {
   
   require 'hipchat-php/HipChat.php';
@@ -46,7 +42,16 @@ function hipchat_send($message, $room = NULL) {
 
   $hc = new Hipchat\Hipchat($token);
 
-  $hc->message_room($room, $site_name, $message, 'false', $color, 'html');
+  try {
+    $hc->message_room($room, $site_name, $message, 'false', $color, 'html');
+    return TRUE;
+  }
+
+  //catch exception
+  catch (Exception $e) {
+    return FALSE;
+  }
+  
 }
 
 /**

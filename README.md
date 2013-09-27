@@ -15,4 +15,6 @@ After installing this module as normal you need to:
 - [x] Fix bug with PHP namespace when using newer version of hipchat-php.
 - [x] Add ability to change message color sent to Hipchat.
 - [x] Give user the choice on what contenttypes add,update and delete for nodes and comments should work.
-- [] When adding apikey and room name send test message to room. 
+- [x] Test settings button in admin to test so API-Key and room name is correct
+- [] Custom Entity support?
+
