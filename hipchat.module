@@ -33,12 +33,27 @@ function hipchat_send($message, $room = NULL) {
   
   require 'hipchat-php/HipChat.php';
   
-  $room = variable_get('hipchat_default_room', 'Development');
-  $site_name = variable_get('site_name', 'Drupal site');
+  $room = variable_get('hipchat_default_room');
+  $site_name = variable_get('site_name');
   $color = variable_get('hipchat_message_color');
+  $token = variable_get('hipchat_token');
+  
   // Ensure the site_name is less than 15 characters -- an API limit of HipChat.
   $site_name = substr($site_name, 0, 15);
-  $token = variable_get('hipchat_token');
+
+  if (empty($site_name) || empty($room) || empty($message)) {
+    
+    if (empty($message)) {
+      drupal_set_message(t('HipChat Error - Something whent wrong, we have an empty message'), 'error');  
+    }
+    elseif (empty($room)) {
+
+      drupal_set_message(t('HipChat Error -  Please visit <a href="@link">settings page</a> and add a default room', array(
+        '@link' => '/admin/config/services/hipchat',        
+      )), 'error');
+    }
+    return;
+  }
 
   $hc = new Hipchat\Hipchat($token);
 
